@@ -12,12 +12,12 @@ from fabric.api import env
 
 # Many things are configured using the client and project code
 env.client = ''
-env.project_code = 'food'
-env.domain = 'food.rohunbansal.com'
+env.project_code = '{{ PROJECT_NAME }}'
+env.domain = '{{ PROJECT_DOMAIN }}'
 
 # This is the name of the folder within the repo which houses all code
 # to be deployed.
-env.web_dir = 'www'
+env.web_dir = 'web'
 
 # Environment-agnostic folders
 env.project_dir = '/var/web/apps/%(project_code)s' % env
@@ -43,4 +43,4 @@ def stage():
 def prod():
     _configure('prod')
     # Production hosts needs filling in
-    env.hosts = ['root@74.208.193.244']
+    env.hosts = ['{{ PROJECT_SERVER_AUTH }}']

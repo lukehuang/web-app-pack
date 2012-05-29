@@ -28,15 +28,49 @@ def setup_django_local():
 def setup_submodules():
 	local('git submodule update --init')
 
+def download_bootstrap():
+	local('git submodule add https://github.com/twitter/bootstrap.git')
+
+def download_submodules():
+	download_bootstrap()
+
 def setup_local():
 	setup_venv_local()
 	setup_django_local()
-	setup_submodules()
 
 #####
 
-def clean():
+def input_with_default(prompt, default, pwd = False):
+    if pwd:
+        x = getpass.getpass("%s (%s): " % (prompt, default))
+    else:
+        x = raw_input("%s (%s): "%(prompt, default))
+    if not x:
+        return default
+    return x
+
+def config():
+	project_name = input_with_default("Project Name", "project")
+	project_domain = input_with_default("Project Domain", "localhost")
+	project_server_auth = input_with_default("Project Server/Auth", "root@localhost")
+
+	with open('fabconfig.py', 'r+') as f:
+		new_fabconfig = f.read().replace('{{ PROJECT_NAME }}', project_name).replace('{{ PROJECT_DOMAIN }}', project_domain).replace('{{ PROJECT_SERVER_AUTH }}', project_server_auth)
+		f.seek(0)
+		f.write(new_fabconfig)
+		f.truncate()
+
+	with open('web/deploy/nginx.conf', 'r+') as f:
+		new_nginx = f.read().replace('{{ PROJECT_DOMAIN }}', project_domain).replace('{{ PROJECT_NAME }}', project_name)
+		f.seek(0)
+		f.write(new_nginx)
+		f.truncate()
+
+def clean_venv():
 	local('rm -rf venv')
+
+def clean_pyc():
+	local("find . -name '*.pyc' -print0|xargs -0 rm", capture=False)
 
 def bootstrap():
 	bootstrap_copy()
@@ -187,6 +221,11 @@ def delete_old_builds():
     notify('Deleting old builds')
     with cd(env.builds_dir):
         sudo('find . -maxdepth 1 -type d -name "%(build)s*" | sort -r | sed "1,9d" | xargs rm -rf' % env)
+
+def enable():
+	sudo('if [ -h %(enabled_wsgi)s ]; then unlink %(enabled_wsgi)s; fi' % env)
+	sudo('ln -s %(available_wsgi)s %(enabled_wsgi)s' % env)
+	sudo('touch %(enabled_wsgi)s' % env)
 
 def custom():
 	with cd(env.project_dir):
