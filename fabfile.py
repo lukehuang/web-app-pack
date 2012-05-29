@@ -25,11 +25,18 @@ def setup_venv_local():
 def setup_django_local():
 	local('source venv/bin/activate && cd web && ./manage.py syncdb')
 
+def setup_bootstrap():
+	local('git submodule add https://github.com/twitter/bootstrap.git')
+
 def setup_local():
 	setup_venv_local()
 	setup_django_local()
+	setup_bootstrap()
 
 #####
+
+def clean():
+	local('rm -rf venv')
 
 def bootstrap():
 	bootstrap_copy()
