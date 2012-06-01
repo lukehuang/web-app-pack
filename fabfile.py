@@ -66,6 +66,9 @@ def config():
 		f.write(new_nginx)
 		f.truncate()
 
+	print green("All set up!")
+	print "now just run 'fab create_virtualenv' without quotes to create the initial virtualenv on the server and 'fab deploy' when you're ready to deploy"
+
 def clean_venv():
 	local('rm -rf venv')
 
@@ -119,8 +122,8 @@ def deploy():
 	pack()
 	deploy_code(env.build_file)
 
-	update_virtualenv()
 	switch_symlink()
+	update_virtualenv()
 	custom()
 	# migrate()
 	deploy_nginx_config()
@@ -128,6 +131,7 @@ def deploy():
 	reload_python_code()
 	reload_nginx()
 	delete_old_builds()
+	enable()
 	
 
 def set_ssh_user():
@@ -177,11 +181,22 @@ def deploy_code(archive_file):
 	upload(archive_file)
 	unpack(archive_file)
 
+def create_virtualenv():
+	"""
+	create venv if it doesn't exist
+	"""
+	notify('Creating venv')
+
+	sudo('mkdir -p %(builds_dir)s' % env)
+	with cd(env.project_dir):
+		sudo('/usr/local/bin/virtualenv --no-site-packages --distribute venv')
+
 def update_virtualenv():
 	"""
 	Install the dependencies in the requirements file
 	"""
 	notify('Updating venv')
+
 	with cd(env.code_dir):
 		sudo('source %s/bin/activate && pip install -r deploy/requirements.txt' % env.virtualenv)
 
@@ -211,7 +226,7 @@ def reload_python_code():
 	with cd(env.builds_dir):
 		sudo('if [ -h %(available_wsgi)s ]; then unlink %(available_wsgi)s; fi' % env)
 		sudo('ln -s %(project_dir)s/current/%(wsgi)s %(available_wsgi)s' % env)
-		sudo('touch %(enabled_wsgi)s' % env)
+		# sudo('touch %(enabled_wsgi)s' % env)
 
 def reload_nginx():
     notify('Reloading nginx configuration')
@@ -223,7 +238,8 @@ def delete_old_builds():
         sudo('find . -maxdepth 1 -type d -name "%(build)s*" | sort -r | sed "1,9d" | xargs rm -rf' % env)
 
 def enable():
-	sudo('if [ -h %(enabled_wsgi)s ]; then unlink %(enabled_wsgi)s; fi' % env)
+	notify('Enabling app')
+	sudo('if [ -h %(enabled_wsgi)s ]; then rm -f %(enabled_wsgi)s; fi' % env)
 	sudo('ln -s %(available_wsgi)s %(enabled_wsgi)s' % env)
 	sudo('touch %(enabled_wsgi)s' % env)
 
@@ -231,7 +247,7 @@ def custom():
 	with cd(env.project_dir):
 		notify('Fixing things')
 		sudo('if [ -h current/db.sqlite3 ]; then unlink current/db.sqlite3; fi' % env)
-		sudo('ln -s /var/web/apps/food/db.sqlite3 current/')
+		sudo('ln -s %(project_dir)s/db.sqlite3 current/' % env)
 		
 		sudo('chown uwsgi:uwsgi current')
 		sudo('chown uwsgi:uwsgi current/db.sqlite3')
